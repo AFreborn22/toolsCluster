@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modeling</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            background-color: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-top: 50px;
+            margin-bottom: 50px;
+        }
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .alert {
+            margin-top: 20px;
+        }
+        .card {
+            margin-top: 30px;
+        }
+        .card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+        .accuracy-display, .cv-display {
+            background-color: #d4f4dd; /* Green background */
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-weight: bold;
+            color: #004d00;
+            display: inline-block;
+        }
+        .model-download-section {
+            margin-top: 30px;
+            text-align: center;
+        }
+        label {
+            display: inline-block;
+            background-color: #f1f1f1;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        label:hover {
+            background-color: #e0e0e0;
+        }
+        .file-name {
+            margin-left: 10px;
+            font-style: italic;
+            color: #555;
+        }
+        input[type="file"] {
+            display: none;
+        }        
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-circle"></div>
+        <div class="loading-text">
+            Sedang di proses....
+            <div class="changing-text" id="changingText">Sabar ya</div> 
+        </div>
+    </div>
+
+    <div class="container mt-5">
+        <h2>Upload File dulu ya</h2>
+        <form action="/modeling" method="POST" enctype="multipart/form-data">
+            <label for="clustered_file">Choose File</label>
+            <span class="file-name">No file chosen</span>
+            <input type="file" name="clustered_file" id="clustered_file" required onchange="updateFileName()">
+            
+            <div class="form-group mt-4">
+                <h5 for="model_type">Select Model for Training</h5>
+                <select class="form-control" name="model_type" id="model_type" required>
+                    <option value="Logistic Regression">Logistic Regression</option>
+                    <option value="Random Forest">Random Forest</option>
+                    <option value="SVM">SVM</option>
+                    <option value="Decision Tree">Decision Tree</option>
+                    <option value="all">All Models</option> <!-- Tambahkan opsi ini -->
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary mt-3">Run</button>
+        </form>
+
+        {% if error %}
+        <div class="alert alert-danger" role="alert">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        {% if results %}
+        <h2 class="mt-4">Modeling Results</h2>
+        {% for result in results %}
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h3>{{ result.name }}</h3>
+                    <p class="accuracy-display">
+                        <strong>Accuracy :</strong> {{ "%.3f" | format(result.accuracy) }}
+                        {% if result.accuracy >= 0.90 %}
+                            <span class="text-success"> - Akurasi yang sangat bagus</span>
+                        {% elif result.accuracy >= 0.80 %}
+                            <span class="text-warning"> - Bagus, Tetapi bisa lebih di tingkatkan</span>
+                        {% else %}
+                            <span class="text-danger"> - Akurasinya rendah, butuh perbaikan</span>
+                        {% endif %}
+                    </p>
+
+                    <h3>Classification Report</h3>
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Precision</th>
+                                <th>Recall</th>
+                                <th>F1-Score</th>
+                                <th>Support</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for label, metrics in result.report.items() %}
+                            {% if label != 'accuracy' %}
+                            <tr>
+                                <td>{{ label }}</td>
+                                <td>{{ "%.3f" | format(metrics['precision']) }}
+                                    {% if metrics['precision'] >= 0.90 %}
+                                        <span class="text-success"> - Bagus sekali</span>
+                                    {% elif metrics['precision'] >= 0.80 %}
+                                        <span class="text-warning"> - Bagus</span>
+                                    {% else %}
+                                        <span class="text-danger"> - Perlu ditingkatkan</span>
+                                    {% endif %}
+                                </td>
+                                
+                                <td>{{ "%.3f" | format(metrics['recall']) }}
+                                    {% if metrics['recall'] >= 0.90 %}
+                                        <span class="text-success"> - Bagus sekali</span>
+                                    {% elif metrics['recall'] >= 0.80 %}
+                                        <span class="text-warning"> - Bagus</span>
+                                    {% else %}
+                                        <span class="text-danger"> - Perlu ditingkatkan</span>
+                                    {% endif %}
+                                </td>
+                                
+                                <td>{{ "%.3f" | format(metrics['f1-score']) }}
+                                    {% if metrics['f1-score'] >= 0.90 %}
+                                        <span class="text-success"> - Bagus sekali</span>
+                                    {% elif metrics['f1-score'] >= 0.80 %}
+                                        <span class="text-warning"> - Bagus</span>
+                                    {% else %}
+                                        <span class="text-danger"> - Perlu ditingkatkan</span>
+                                    {% endif %}
+                                </td>                                
+                                <td>{{ metrics['support'] }}</td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <h3>Cross-Validation Results</h3>
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Fold</th>
+                                    <th>Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for fold, score in result.cv_report['Cross-Validation Scores'] %}
+                                <tr>
+                                    <td>{{ fold }}</td>
+                                    <td>{{ "%.3f" | format(score) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+
+                        <div class="cv-display">
+                            <p><strong>Mean CV Score</strong> {{ "%.3f" | format(result.cv_report['Mean CV Score']) }}
+                                {% if result.cv_report['Mean CV Score'] >= 0.90 %}
+                                    <span class="text-success"> - Generalisasi model yang sangat baik</span>
+                                {% elif result.cv_report['Mean CV Score'] >= 0.80 %}
+                                    <span class="text-warning"> - Bagus, tetapi mungkin perlu penyetelan manual</span>
+                                {% else %}
+                                    <span class="text-danger"> - Kinerja model kurang baik nih</span>
+                                {% endif %}
+                            </p>
+                        
+                            <p><strong>Standard Deviation of CV Score</strong> {{ "%.3f" | format(result.cv_report['Standard Deviation of CV Score']) }}
+                                {% if result.cv_report['Standard Deviation of CV Score'] >= 0.05 %}
+                                    <span class="text-danger"> - Varians tinggi, berpotensi overfitting!</span>
+                                {% else %}
+                                    <span class="text-success"> - Varians rendah, model stabil</span>
+                                {% endif %}
+                            </p>
+                        </div>
+
+                    <h3 style="margin-top:10px">Confusion Matrix</h3>
+                    <img src="data:image/png;base64,{{ result.cm_image }}" alt="Confusion Matrix for {{ result.name }}">
+                    
+                    <h3>Kesimpulan Akhir</h3>
+                    <div class="conclusion-display 
+                        {% if result.accuracy >= 0.90 and result.cv_report['Mean CV Score'] >= 0.90 %}
+                            result-display
+                        {% elif result.accuracy >= 0.80 or result.cv_report['Mean CV Score'] >= 0.80 %}
+                            warning-result
+                        {% else %}
+                            bad-result
+                        {% endif %}">
+
+                        <p>
+                            Berdasarkan akurasi sebesar <strong>{{ "%.3f" | format(result.accuracy) }}</strong>, 
+                            {% if result.accuracy >= 0.90 %}
+                                Model ini memiliki performa sangat baik dan cukup akurat.
+                            {% elif result.accuracy >= 0.80 %}
+                                Model ini cukup akurat, tetapi masih bisa ditingkatkan.
+                            {% else %}
+                                Model ini memiliki akurasi rendah dan memerlukan perbaikan.
+                            {% endif %}
+                        </p>
+
+                        <p>
+                            Rata-rata Cross-Validation Score adalah <strong>{{ "%.3f" | format(result.cv_report['Mean CV Score']) }}</strong> 
+                            dengan standar deviasi <strong>{{ "%.3f" | format(result.cv_report['Standard Deviation of CV Score']) }}</strong>. 
+                            {% if result.cv_report['Mean CV Score'] >= 0.90 and result.cv_report['Standard Deviation of CV Score'] < 0.05 %}
+                                Model ini stabil dan memiliki generalisasi yang sangat baik dan tidak menujukan indikasi terjadinya overfitting.
+                            {% elif result.cv_report['Standard Deviation of CV Score'] >= 0.05 %}
+                                Model ini menunjukkan variansi tinggi, kemungkinan terjadi overfitting.
+                            {% else %}
+                                Model ini menunjukkan generalisasi buruk, perlu tuning lebih lanjut.
+                            {% endif %}
+                        </p>
+
+                        <p>
+                            Kesimpulan umumnya
+                            {% if result.accuracy < 0.80 or result.cv_report['Standard Deviation of CV Score'] >= 0.05 %}
+                                <strong>Model perlu ditingkatkan.</strong> mungkin bisa mencoba hyperparameter tuning secara manual
+                                atau menggunakan lebih banyak data.
+                            {% else %}
+                                <strong>Model sudah cukup baik dan layak digunakan dalam lingkungan produksi.</strong>
+                            {% endif %}
+                        </p>
+                    </div>       
+                        
+                        <p style="display: flex; justify-content: center; align-items: center;">(Download model dalam bentuk .pkl)</p>
+                    
+                    <div style="display: flex; justify-content: center; align-items: center;">
+                        <button class="btn btn-primary" onclick="downloadModel('{{ result.model_filename }}')">Download</button>
+                    </div>
+                    
+                </div>
+            </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+
+
+    <script>
+        function downloadModel(filename) {
+            window.location.href = "{{ url_for('download_model', filename='') }}" + filename;
+        }
+
+        function updateFileName() {
+            const input = document.getElementById('clustered_file');
+            const fileName = document.querySelector('.file-name');
+            fileName.textContent = input.files.length > 0 ? input.files[0].name : 'No file chosen';
+        }
+
+        //cek format file
+        const fileInput = document.getElementById('file');
+        fileInput.addEventListener('change', function() {
+            if (!fileInput.files[0].name.endsWith('.csv')) {
+                alert('Mohon Maaf untuk saat ini hanya file CSV yang diperbolehkan!');
+                fileInput.value = '';
+            }
+        });
+
+        // Tampilkan pop-up loading saat proses dimulai
+        const form = document.querySelector('form');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        form.addEventListener('submit', function() {
+            loadingOverlay.style.display = 'flex'; 
+            startChangingText(); 
+        });
+
+        // Fungsi untuk mengubah teks
+        const changingTextElement = document.getElementById('changingText');
+        const textArray = ["Sabar ya", "Tunggu sebentar", "Jangan kemana-mana", "Bentar lagi jadi nih"];
+        let textIndex = 0;
+
+        function startChangingText() {
+            setInterval(function() {
+                changingTextElement.textContent = textArray[textIndex];
+                textIndex = (textIndex + 1) % textArray.length; 
+            }, 2000); 
+        }
+    </script>
+</body>
+</html>

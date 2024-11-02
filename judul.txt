@@ -1,0 +1,3 @@
+Penerapan Cosine Similarity dan K-Means untuk Mendeteksi Pola Komentar Buzzer di TikTo
+
+Pengembangan web untuk Identifikasi Buzzer di komentar TikTok berbasis machine learning

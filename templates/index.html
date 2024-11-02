@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clustering Komentar</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <!-- Upload Section -->
+    <div class="upload-container">
+        <div class="upload-box">
+            <h2>Upload File dulu ya</h2>
+            <form action="/" method="POST" enctype="multipart/form-data" class="d-flex flex-column align-items-center">
+                <label for="file">Choose File</label>
+                <span class="file-name">No file chosen</span>
+                <input type="file" name="file" id="file" required onchange="updateFileName()">
+                <button type="submit" class="btn btn-primary mt-3">Upload</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-circle"></div>
+        <div class="loading-text">
+            Sedang di proses....
+            <div class="changing-text" id="changingText">Sabar ya</div> 
+        </div>
+    </div>          
+
+    <!-- Main Container for Visualization and Results -->
+    {% if filename %}
+    <div class="results-container container my-5 p-4">
+        <!-- Visualization Section -->
+        <div class="visualization-section text-center">
+            <h3>Visualisasi hasil Clustering Komentar</h3>
+            <div class="chart-row d-flex justify-content-between mt-4">
+                <div class="chart-container">
+                    <h4>Pie Chart</h4>
+                    <canvas id="pieChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h4>Bar Chart</h4>
+                    <canvas id="barChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Insight Section for Both Charts -->
+        <div class="insight-container mt-5">
+            <h3>Insight dari Visualisasi</h3>
+            <p class="highlight-text">
+                Dari hasil visualisasi <strong>Pie Chart</strong> dan <strong>Bar Chart</strong>, kita bisa lihat nih, berapa banyak komentar yang termasuk kategori 
+                <strong><span style="color:#e69b00;">Natural</span></strong>, yaitu sebanyak 
+                <strong><span style="color:#e69b00;">{{ bar_data[0] }}</span></strong> komentar, dan yang masuk kategori 
+                <strong><span style="color:#e69b00;">Buzzer/bot</span></strong> ada 
+                <strong><span style="color:#e69b00;">{{ bar_data[1] }}</span></strong> komentar. Dari sini, kita jadi tahu proporsi dari dua jenis komentar ini, di mana komentar 
+                <strong><span style="color:#e69b00;">Buzzer/bot</span></strong> ditandai dengan warna biru muda, dan komentar 
+                <strong><span style="color:#e69b00;">Natural</span></strong> pakai warna biru tua. Cukup jelas bukan? semoga bisa membantu menganalisis data kamu ya.
+            </p>            
+        </div>
+    
+        <!-- Insight Baru: Top Komentar dan Akun -->
+        <div class="insight-section mt-5">
+            <h3>Pola Komentar Buzzer / Bot</h3>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Komentar</th>
+                        <th>Frekuensi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if topComments %}
+                    {% for textClean, count in topComments %}
+                    <tr>
+                        <td>{{ textClean }}</td>
+                        <td>{{ count }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                        <tr><td colspan="2">Tidak ada data</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+    
+            <h3 class="mt-4">Akun(buzzer) dengan Komentar Terbanyak</h3>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Nama Akun</th>
+                        <th>Jumlah Komentar</th>
+                        <th>Komentar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if topAccounts %}
+                    {% for uniqueId, count, text in topAccounts %}
+                    <tr>
+                        <td>{{ uniqueId }}</td>
+                        <td>{{ count }}</td>
+                        <td>{{ text }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                        <tr><td colspan="2">Tidak ada data</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    
+        <!-- Example Comments Section -->
+        <div class="comments-section mt-5">
+            <h3>Contoh Komentar</h3>
+            <div class="table-row d-flex justify-content-between mt-4">
+                <div class="table-container">
+                    <h4>Contoh komentar buzzer / bot</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Comment</th>
+                                <th>Category</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for comment in exampleBot %}
+                            <tr>
+                                <td>{{ comment }}</td>
+                                <td>Buzzer / Bot</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-container">
+                    <h4>Contoh komentar natural</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Comment</th>
+                                <th>Category</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for comment in exampleNatural %}
+                            <tr>
+                                <td>{{ comment }}</td>
+                                <td>Natural Comment</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    
+        <!-- Download Section -->
+        <div class="download-section mt-5">
+            <h3>Download Hasilnya di sini</h3>
+            <a href="{{ url_for('download_file', filename=filename) }}" class="btn btn-success mt-3">Download</a>
+            <p class="mt-4">Clustering dan analisisnya sudah selesai, mau lanjut ke modeling?</p>
+            <a href="{{ url_for('modeling') }}" class="btn btn-primary mt-3">Modeling</a>
+        </div>
+    </div>    
+    {% endif %}
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        function updateFileName() {
+            const input = document.getElementById('file');
+            const fileName = document.querySelector('.file-name');
+            fileName.textContent = input.files.length > 0 ? input.files[0].name : 'No file chosen';
+        }
+
+        //cek format file
+        const fileInput = document.getElementById('file');
+        fileInput.addEventListener('change', function() {
+            if (!fileInput.files[0].name.endsWith('.csv')) {
+                alert('Mohon Maaf untuk saat ini hanya file CSV yang diperbolehkan!');
+                fileInput.value = '';
+            }
+        });
+
+        // Tampilkan pop-up loading saat proses dimulai
+        const form = document.querySelector('form');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        form.addEventListener('submit', function() {
+            loadingOverlay.style.display = 'flex'; 
+            startChangingText(); 
+        });
+
+        // Fungsi untuk mengubah teks
+        const changingTextElement = document.getElementById('changingText');
+        const textArray = ["Sabar ya", "Tunggu sebentar", "Jangan kemana-mana", "Bentar lagi jadi nih"];
+        let textIndex = 0;
+
+        function startChangingText() {
+            setInterval(function() {
+                changingTextElement.textContent = textArray[textIndex];
+                textIndex = (textIndex + 1) % textArray.length; 
+            }, 2000); 
+        }
+
+        // Cek apakah data pie_data dan bar_data ada
+        {% if pie_data and bar_data %}
+        var pieData = {{ pie_data | safe }};
+        var barData = {{ bar_data | safe }};
+        var labels = ['Natural Comment', 'Buzzer / Bot'];
+    
+        // Pie chart
+        var pieCtx = document.getElementById('pieChart').getContext('2d');
+        var pieChart = new Chart(pieCtx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: pieData,
+                    backgroundColor: ['#00487c', '#0095ff'],  
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: {
+                        display: true,  // Tampilkan legenda
+                        position: 'top'
+                    }
+                }
+            }
+        });
+    
+        // Bar chart
+        var barCtx = document.getElementById('barChart').getContext('2d');
+        var barChart = new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,  
+                datasets: [{  
+                    data: barData,  
+                    backgroundColor: ['#00487c', '#0095ff'],  
+                    barPercentage: 0.5,  
+                    categoryPercentage: 1.0  
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: {
+                        display: false,  
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true  
+                    }
+                }
+            }
+        });
+    {% endif %}          
+    </script>
+</body>
+
+</html>
