@@ -23,13 +23,10 @@ import matplotlib.pyplot as plt
 import io
 import base64
 
-load_dotenv()
-
 nltk.download('punkt')
 nltk.download('stopwords')
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY')
 app.config['UPLOAD_FOLDER'] = './uploads'
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
