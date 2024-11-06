@@ -17,7 +17,6 @@ COPY /workspace/my-credentials.json /app/my-credentials.json
 # Set variabel lingkungan untuk file kredensial Google
 ENV GOOGLE_APPLICATION_CREDENTIALS="/app/my-credentials.json"
 
-# Ekspos port 8080
 EXPOSE 8080
 
 # Tentukan perintah untuk menjalankan aplikasi
