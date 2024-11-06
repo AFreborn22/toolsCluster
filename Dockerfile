@@ -9,11 +9,12 @@ COPY . .
 
 COPY .env .env
 
-COPY my-credentials.json /app/my-credentials.json
+# Gunakan file dari konteks build (workspace)
+COPY /workspace/my-credentials.json /app/my-credentials.json
 
 ENV GOOGLE_APPLICATION_CREDENTIALS="/app/my-credentials.json"
 
 EXPOSE 8080
 
 # Tentukan command untuk menjalankan aplikasi
-CMD ["python", "app.py"]    
+CMD ["python", "app.py"]

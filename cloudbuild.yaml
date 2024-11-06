@@ -2,11 +2,15 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 steps:
+  # Step untuk mengambil file my-credentials.json dari bucket
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args: ['cp', 'gs://my-app-uploads-bucket/my-credentials.json', '/workspace/my-credentials.json']
+
   # Build Docker image 
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-t', 'gcr.io/$PROJECT_ID/clustertools', '.']
 
-  # Docker image ke Google Container Registry (GCR)
+  # Push Docker image ke Google Container Registry (GCR)
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/clustertools']
 
@@ -22,5 +26,5 @@ steps:
     ]
 
 substitutions:
-  _SERVICE_NAME: 'your-service-name'
+  _SERVICE_NAME: 'flask-app-service-account'
   _IMAGE_NAME: 'clustertools'
