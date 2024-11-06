@@ -54,6 +54,8 @@ def index():
             # Simpan file dan proses CSV
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
             file.save(file_path)
+            
+            upload_to_gcs(file_path, f"uploads/{file.filename}")
 
             tiktok = pd.read_csv(file_path)
             tiktokData = tiktok[['uniqueId', 'text', 'createTimeISO']]
@@ -132,6 +134,8 @@ def index():
             # Simpan hasil klastering ke file CSV
             result_file = os.path.join(app.config['UPLOAD_FOLDER'], 'clustered_data.csv')
             tiktokData.to_csv(result_file, index=False)
+            
+            upload_to_gcs(result_file, "results/clustered_data.csv")
 
             # Menghitung jumlah komentar per cluster
             cluster_counts = tiktokData['cluster'].value_counts().to_dict()
@@ -174,9 +178,11 @@ def index():
             topComments = topComments.to_records(index=False).tolist()
             topAccounts = topAccounts.to_records(index=False).tolist()
             
+            download_url = f"https://storage.googleapis.com/{app.config['GCS_BUCKET_NAME']}/results/clustered_data.csv"
+            
             return render_template(
                 'index.html',
-                filename='clustered_data.csv',
+                download_url,
                 exampleBot=exampleBot,
                 exampleNatural=exampleNatural,
                 pie_data=pie_data,

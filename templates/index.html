@@ -163,7 +163,7 @@
         <!-- Download Section -->
         <div class="download-section mt-5">
             <h3>Download Hasilnya di sini</h3>
-            <a href="{{ url_for('download_file', filename=filename) }}" class="btn btn-success mt-3">Download</a>
+            <a href="{{ url_for('download_file', download_url=download_url) }}" class="btn btn-success mt-3">Download</a>
             <p class="mt-4">Clustering dan analisisnya sudah selesai, mau lanjut ke modeling?</p>
             <a href="{{ url_for('modeling') }}" class="btn btn-primary mt-3">Modeling</a>
         </div>
