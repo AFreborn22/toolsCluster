@@ -21,7 +21,7 @@ from models.decisionTree import trainDecisionTree
 import pickle
 from imblearn.over_sampling import SMOTE
 from sklearn.metrics import confusion_matrix
-from services.gcs import upload_to_gcs, download_from_gcs
+from services.gcs import upload_to_gcs, read_csv_from_gcs, download_from_gcs
 from config import Config
 import matplotlib.pyplot as plt
 
@@ -52,12 +52,9 @@ def index():
 
         try:
             # Simpan file dan proses CSV
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-            file.save(file_path)
+            upload_to_gcs(file.stream, f"uploads/{file.filename}")
             
-            upload_to_gcs(file_path, f"uploads/{file.filename}")
-
-            tiktok = pd.read_csv(file_path)
+            tiktok = read_csv_from_gcs(f"uploads/{file.filename}")
             tiktokData = tiktok[['uniqueId', 'text', 'createTimeISO']]
             tiktokData.dropna(inplace=True)
             tiktokData.drop_duplicates(inplace=True)
@@ -132,14 +129,13 @@ def index():
             tiktokData['cluster'] = tiktokData['cluster'].map(mapping)
 
             # Simpan hasil klastering ke file CSV
-            result_file = os.path.join(app.config['UPLOAD_FOLDER'], 'clustered_data.csv')
-            tiktokData.to_csv(result_file, index=False)
-            
-            upload_to_gcs(result_file, "results/clustered_data.csv")
+            output = io.StringIO()
+            tiktokData.to_csv(output, index=False)
+            output.seek(0)
+            upload_to_gcs(output, "results/clustered_data.csv")
 
             # Menghitung jumlah komentar per cluster
             cluster_counts = tiktokData['cluster'].value_counts().to_dict()
-
 
             # Data untuk pie chart dan bar chart
             pie_data = [cluster_counts.get('Natural Comment', 0), cluster_counts.get('Buzzer / Bot', 0)]
@@ -178,11 +174,11 @@ def index():
             topComments = topComments.to_records(index=False).tolist()
             topAccounts = topAccounts.to_records(index=False).tolist()
             
-            download_url = f"https://storage.googleapis.com/{app.config['GCS_BUCKET_NAME']}/results/clustered_data.csv"
+            download_url = f"https://storage.googleapis.com/{Config.GCS_BUCKET_NAME}/results/clustered_data.csv"
             
             return render_template(
                 'index.html',
-                download_url,
+                download_url=download_url,
                 exampleBot=exampleBot,
                 exampleNatural=exampleNatural,
                 pie_data=pie_data,
