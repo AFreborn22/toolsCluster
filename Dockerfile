@@ -14,7 +14,6 @@ COPY . .
 # Copy the credentials file from build context to container
 COPY my-credentials.json /app/my-credentials.json
 
-# Set environment variable for Google credentials
 ENV GOOGLE_APPLICATION_CREDENTIALS="/app/my-credentials.json"
 
 EXPOSE 8080
