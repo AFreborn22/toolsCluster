@@ -18,5 +18,4 @@ ENV GOOGLE_APPLICATION_CREDENTIALS="/app/my-credentials.json"
 
 EXPOSE 8080
 
-# Set command to run the application
 CMD ["python", "app.py"]
