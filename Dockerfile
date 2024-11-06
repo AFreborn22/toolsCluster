@@ -1,23 +1,23 @@
-# Gunakan base image Python
+# Use Python base image
 FROM python:3.9-slim
 
-# Tentukan direktori kerja di dalam container
+# Set working directory inside container
 WORKDIR /app
 
-# Salin file dependencies dan install
+# Copy dependencies file and install
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Salin semua file dari direktori build ke dalam container
+# Copy all other files
 COPY . .
 
-# Salin file kredensial dari konteks build ke container
-COPY /workspace/my-credentials.json /app/my-credentials.json
+# Copy the credentials file from build context to container
+COPY my-credentials.json /app/my-credentials.json
 
-# Set variabel lingkungan untuk file kredensial Google
+# Set environment variable for Google credentials
 ENV GOOGLE_APPLICATION_CREDENTIALS="/app/my-credentials.json"
 
 EXPOSE 8080
 
-# Tentukan perintah untuk menjalankan aplikasi
+# Set command to run the application
 CMD ["python", "app.py"]
