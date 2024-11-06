@@ -10,7 +10,7 @@ steps:
   # Step 3: Deploy ke Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
     args: [
-      'run', 'deploy', 'your-service-name',
+      'run', 'deploy', 'flask-app-service-account',
       '--image', 'gcr.io/$PROJECT_ID/clusterTools',
       '--region', 'asia-southeast2',  # Ubah sesuai lokasi server yang Anda pilih
       '--platform', 'managed',
