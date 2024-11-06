@@ -1,6 +1,8 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, session
+from flask import Flask, render_template, request, send_from_directory
 import pandas as pd
 import os
+import io
+import base64
 from dotenv import load_dotenv
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -19,17 +21,18 @@ from models.decisionTree import trainDecisionTree
 import pickle
 from imblearn.over_sampling import SMOTE
 from sklearn.metrics import confusion_matrix
+from services.gcs import upload_to_gcs, download_from_gcs
+from config import Config
 import matplotlib.pyplot as plt
-import io
-import base64
+
+load_dotenv()
 
 nltk.download('punkt')
 nltk.download('stopwords')
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = './uploads'
-UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.secret_key = os.getenv('SECRET_KEY')
+app.config.from_object(Config)
 
 # Fungsi untuk preprocessing text
 def preprocess_text(text):
@@ -43,158 +46,149 @@ def preprocess_text(text):
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        if 'file' not in request.files:
+        file = request.files.get('file')
+        if not file or file.filename == '':
             return render_template('index.html', error="No file uploaded for clustering.")
 
-        file = request.files['file']
+        try:
+            # Simpan file dan proses CSV
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+            file.save(file_path)
 
-        if file.filename == '':
-            return render_template('index.html', error="No selected file.")
+            tiktok = pd.read_csv(file_path)
+            tiktokData = tiktok[['uniqueId', 'text', 'createTimeISO']]
+            tiktokData.dropna(inplace=True)
+            tiktokData.drop_duplicates(inplace=True)
 
-        if file:
-            try:
-                # Simpan file dan proses CSV
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-                file.save(file_path)
+            # Preprocessing text
+            tiktokData.loc[:, 'textClean'] = tiktokData['text'].apply(preprocess_text)
 
-                tiktok = pd.read_csv(file_path)
-                tiktokData = tiktok[['uniqueId', 'text', 'createTimeISO']]
-                tiktokData.dropna(inplace=True)
-                tiktokData.drop_duplicates(inplace=True)
+            # Stemming dengan caching
+            factory = StemmerFactory()
+            stemmer = factory.create_stemmer()
 
-                # Preprocessing text
-                tiktokData.loc[:, 'textClean'] = tiktokData['text'].apply(preprocess_text)
+            unique_words = set()
+            tiktokData['textClean'].str.split().apply(unique_words.update)
 
-                # Stemming dengan caching
-                factory = StemmerFactory()
-                stemmer = factory.create_stemmer()
+            stemmed_words = {word: stemmer.stem(word) for word in unique_words}
 
-                unique_words = set()
-                tiktokData['textClean'].str.split().apply(unique_words.update)
+            def stemWithDict(text):
+                return ' '.join([stemmed_words.get(word, word) for word in text.split()])
 
-                stemmed_words = {word: stemmer.stem(word) for word in unique_words}
+            tiktokData.loc[:, 'textClean'] = tiktokData['text'].apply(stemWithDict)
+            tiktokData.dropna(inplace=True)
 
-                def stemWithDict(text):
-                    return ' '.join([stemmed_words.get(word, word) for word in text.split()])
+            # Vectorization
+            vectorData = tiktokData['textClean']
+            vectorizer = TfidfVectorizer().fit_transform(vectorData)
+            cosine_sim = cosine_similarity(vectorizer)
 
-                tiktokData.loc[:, 'textClean'] = tiktokData['text'].apply(stemWithDict)
-                tiktokData.dropna(inplace=True)
+            cosineSim = pd.DataFrame(cosine_sim, columns=tiktokData.index, index=tiktokData.index)
+            tiktokData['max_cosine_sim'] = cosineSim.apply(lambda row: row.drop(row.name).max(), axis=1)
 
-                # Vectorization
-                vectorData = tiktokData['textClean']
-                vectorizer = TfidfVectorizer().fit_transform(vectorData)
-                cosine_sim = cosine_similarity(vectorizer)
+            # Threshold for similar comments
+            threshold = 0.7
+            tiktokData['similar_comments_count'] = cosineSim.apply(lambda row: (row > threshold).sum() - 1, axis=1)
 
-                cosineSim = pd.DataFrame(cosine_sim, columns=tiktokData.index, index=tiktokData.index)
-                tiktokData['max_cosine_sim'] = cosineSim.apply(lambda row: row.drop(row.name).max(), axis=1)
+            # Menghitung jumlah komentar per akun
+            tiktokData['comment_count'] = tiktokData.groupby('uniqueId')['uniqueId'].transform('count')
 
-                # Threshold for similar comments
-                threshold = 0.7
-                tiktokData['similar_comments_count'] = cosineSim.apply(lambda row: (row > threshold).sum() - 1, axis=1)
+            # Mengonversi kolom 'createTimeISO' menjadi format datetime
+            tiktokData['createTimeISO'] = pd.to_datetime(tiktokData['createTimeISO'])
 
-                # Menghitung jumlah komentar per akun
-                tiktokData['comment_count'] = tiktokData.groupby('uniqueId')['uniqueId'].transform('count')
+            # Menghitung time_diff hanya untuk akun dengan lebih dari satu komentar
+            tiktokData['time_diff'] = 0
+            comment_counts = tiktokData['uniqueId'].value_counts()
+            multiple_comment_accounts = comment_counts[comment_counts > 1].index
 
-                # Mengonversi kolom 'createTimeISO' menjadi format datetime
-                tiktokData['createTimeISO'] = pd.to_datetime(tiktokData['createTimeISO'])
+            tiktokData.loc[tiktokData['uniqueId'].isin(multiple_comment_accounts), 'time_diff'] = (
+                tiktokData.groupby('uniqueId')['createTimeISO']
+                .diff().dt.total_seconds()
+                .fillna(0.1)
+            )
 
-                # Menghitung time_diff hanya untuk akun dengan lebih dari satu komentar
-                tiktokData['time_diff'] = 0
-                comment_counts = tiktokData['uniqueId'].value_counts()
-                multiple_comment_accounts = comment_counts[comment_counts > 1].index
+            # Clustering
+            features = ['max_cosine_sim', 'similar_comments_count', 'comment_count', 'time_diff']
+            scaler = StandardScaler()
+            scaled_features = scaler.fit_transform(tiktokData[features])
 
-                tiktokData.loc[tiktokData['uniqueId'].isin(multiple_comment_accounts), 'time_diff'] = (
-                    tiktokData.groupby('uniqueId')['createTimeISO']
-                    .diff().dt.total_seconds()
-                    .fillna(0.1)
-                )
+            kmeans = KMeans(n_clusters=2, init='k-means++', max_iter=300, n_init=10, random_state=42)
+            tiktokData['cluster'] = kmeans.fit_predict(scaled_features)
 
-                # Clustering
-                features = ['max_cosine_sim', 'similar_comments_count', 'comment_count', 'time_diff']
-                scaler = StandardScaler()
-                scaled_features = scaler.fit_transform(tiktokData[features])
+            # tiktokData['cluster'] = tiktokData['cluster'].map({
+            #     0: 'Natural Comment',
+            #     1: 'Buzzer / Bot'
+            # })
+            cluster_summary = tiktokData.groupby('cluster')[features].mean()
+            
+            # Pemetaan dinamis berdasarkan pola data
+            if cluster_summary.loc[0, 'similar_comments_count'] > cluster_summary.loc[1, 'similar_comments_count']:
+                mapping = {0: 'Buzzer / Bot', 1: 'Natural Comment'}
+            else:
+                mapping = {0: 'Natural Comment', 1: 'Buzzer / Bot'}
+            
+            tiktokData['cluster'] = tiktokData['cluster'].map(mapping)
 
-                kmeans = KMeans(n_clusters=2, init='k-means++', max_iter=300, n_init=10, random_state=42)
-                tiktokData['cluster'] = kmeans.fit_predict(scaled_features)
+            # Simpan hasil klastering ke file CSV
+            result_file = os.path.join(app.config['UPLOAD_FOLDER'], 'clustered_data.csv')
+            tiktokData.to_csv(result_file, index=False)
 
-                # tiktokData['cluster'] = tiktokData['cluster'].map({
-                #     0: 'Natural Comment',
-                #     1: 'Buzzer / Bot'
-                # })
-                cluster_summary = tiktokData.groupby('cluster')[features].mean()
+            # Menghitung jumlah komentar per cluster
+            cluster_counts = tiktokData['cluster'].value_counts().to_dict()
+
+
+            # Data untuk pie chart dan bar chart
+            pie_data = [cluster_counts.get('Natural Comment', 0), cluster_counts.get('Buzzer / Bot', 0)]
+            bar_data = [cluster_counts.get('Natural Comment', 0), cluster_counts.get('Buzzer / Bot', 0)]
+
+            # Menyediakan contoh kalimat untuk tabel
+            exampleNatural = tiktokData[tiktokData['cluster'] == 'Natural Comment'].sample(10)['text'].tolist()
+            exampleBot = tiktokData[tiktokData['cluster'] == 'Buzzer / Bot'].sample(10)['text'].tolist()
+            
+            topComments = (
+                tiktokData[tiktokData['cluster'] == 'Buzzer / Bot']  
+                .groupby('textClean')
+                .size()
+                .reset_index(name='count')  
+                .sort_values(by='count', ascending=False)
+                .head()  
+            )
+            
+            buzzer_data = tiktokData[tiktokData['cluster'] == 'Buzzer / Bot']
+            
+            topAccounts = (
+                buzzer_data
+                .groupby('uniqueId', as_index=False)  
+                .agg({
+                    'comment_count': 'sum',  
+                    'text': 'first'  
+                })
+                .query('comment_count > 1')  
+                .sort_values(by='comment_count', ascending=False)  
+                .head()  
+            )
                 
-                # Pemetaan dinamis berdasarkan pola data
-                if cluster_summary.loc[0, 'similar_comments_count'] > cluster_summary.loc[1, 'similar_comments_count']:
-                    mapping = {0: 'Buzzer / Bot', 1: 'Natural Comment'}
-                else:
-                    mapping = {0: 'Natural Comment', 1: 'Buzzer / Bot'}
-                
-                tiktokData['cluster'] = tiktokData['cluster'].map(mapping)
-
-                # Simpan hasil klastering ke file CSV
-                result_file = os.path.join(app.config['UPLOAD_FOLDER'], 'clustered_data.csv')
-                tiktokData.to_csv(result_file, index=False)
-
-                # Menghitung jumlah komentar per cluster
-                cluster_counts = tiktokData['cluster'].value_counts().to_dict()
-
-
-                # Data untuk pie chart dan bar chart
-                pie_data = [cluster_counts.get('Natural Comment', 0), cluster_counts.get('Buzzer / Bot', 0)]
-                bar_data = [cluster_counts.get('Natural Comment', 0), cluster_counts.get('Buzzer / Bot', 0)]
-
-                # Menyediakan contoh kalimat untuk tabel
-                exampleNatural = tiktokData[tiktokData['cluster'] == 'Natural Comment'].sample(10)['text'].tolist()
-                exampleBot = tiktokData[tiktokData['cluster'] == 'Buzzer / Bot'].sample(10)['text'].tolist()
-                
-                topComments = (
-                    tiktokData[tiktokData['cluster'] == 'Buzzer / Bot']  
-                    .groupby('textClean')
-                    .size()
-                    .reset_index(name='count')  
-                    .sort_values(by='count', ascending=False)
-                    .head()  
-                )
-                
-                buzzer_data = tiktokData[tiktokData['cluster'] == 'Buzzer / Bot']
-                
-                topAccounts = (
-                    buzzer_data
-                    .groupby('uniqueId', as_index=False)  
-                    .agg({
-                        'comment_count': 'sum',  
-                        'text': 'first'  
-                    })
-                    .query('comment_count > 1')  
-                    .sort_values(by='comment_count', ascending=False)  
-                    .head()  
-                )
-                    
-                print("Top Comments:", topComments)
-                print("Top Accounts:", topAccounts)
-                
-                topComments = topComments.to_records(index=False).tolist()
-                topAccounts = topAccounts.to_records(index=False).tolist()
-                
-                return render_template(
-                    'index.html',
-                    filename='clustered_data.csv',
-                    exampleBot=exampleBot,
-                    exampleNatural=exampleNatural,
-                    pie_data=pie_data,
-                    bar_data=bar_data,
-                    topComments=topComments,
-                    topAccounts=topAccounts
-                )
-                
-            except Exception as e:
-                return render_template('index.html', error=f"Error processing file: {e}")
+            print("Top Comments:", topComments)
+            print("Top Accounts:", topAccounts)
+            
+            topComments = topComments.to_records(index=False).tolist()
+            topAccounts = topAccounts.to_records(index=False).tolist()
+            
+            return render_template(
+                'index.html',
+                filename='clustered_data.csv',
+                exampleBot=exampleBot,
+                exampleNatural=exampleNatural,
+                pie_data=pie_data,
+                bar_data=bar_data,
+                topComments=topComments,
+                topAccounts=topAccounts
+            )
+            
+        except Exception as e:
+            return render_template('index.html', error=f"Error processing file: {e}")
 
     return render_template('index.html')
-
-@app.route('/uploads/<filename>')
-def download_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 def plot_confusion_matrix(cm, model_name):
     plt.figure()
@@ -226,18 +220,10 @@ def plot_confusion_matrix(cm, model_name):
 @app.route('/modeling', methods=['GET', 'POST'])
 def modeling():
     if request.method == 'POST':
-        # Validasi apakah file diunggah
-        if 'clustered_file' not in request.files:
-            return render_template('modeling.html', error="No file uploaded for modeling.")
-
-        file = request.files['clustered_file']
-        if file.filename == '':
-            return render_template('modeling.html', error="No selected file.")
-
-        if not file.filename.endswith('.csv'):
+        file = request.files.get('clustered_file')
+        if not file or file.filename == '' or not file.filename.endswith('.csv'):
             return render_template('modeling.html', error="Invalid file type. Please upload a CSV file.")
-
-        # Simpan dan proses file CSV
+        
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         file.save(file_path)
 
@@ -332,7 +318,9 @@ def modeling():
     return render_template('modeling.html')
 
 @app.route('/download/<filename>')
-def download_model(filename):
+def download(filename):
+    local_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    download_from_gcs(filename, local_path)
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=True)
 
 if __name__ == "__main__":
