@@ -132,10 +132,6 @@ def index():
             
             tiktokData['cluster'] = tiktokData['cluster'].map(mapping)
 
-            # Simpan hasil klastering ke file CSV
-            filename = f"{unique_id}_analysisResult.csv"
-            save_analysis_to_gcs(tiktokData, f"results/{filename}")
-
             # Menghitung jumlah komentar per cluster
             cluster_counts = tiktokData['cluster'].value_counts().to_dict()
 
@@ -175,6 +171,10 @@ def index():
             
             topComments = topComments.to_records(index=False).tolist()
             topAccounts = topAccounts.to_records(index=False).tolist()
+            
+            # Simpan hasil klastering ke file CSV
+            filename = f"{unique_id}_analysisResult.csv"
+            save_analysis_to_gcs(tiktokData, f"results/{filename}")
             
             download_url = url_for('download_file', filename=f"{unique_id}_analysisResult.csv")
             
