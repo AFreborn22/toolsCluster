@@ -2,7 +2,7 @@ from google.cloud import storage
 from config import Config
 import io
 import pandas as pd
-from flask import send_file
+from flask import Response
 
 storage_client = storage.Client()
 
@@ -48,9 +48,6 @@ def download_from_gcs(blob_name):
     
     csv_data = blob.download_as_bytes()
     
-    return send_file(
-        io.BytesIO(csv_data),
-        mimetype='text/csv',
-        as_attachment=True,
-        download_name=blob_name
-    )
+    response = Response(csv_data)
+    response.headers['Content-Type'] = 'application/octet-stream'
+    response.headers['Content-Disposition'] = f'attachment; filename="{blob_name.split("/")[-1]}"'

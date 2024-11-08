@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, url_for
+from flask import Flask, render_template, request, send_file, url_for, Response
 import pandas as pd
 import os
 import io
@@ -56,7 +56,7 @@ def index():
             unique_id = str(uuid.uuid4())  
             file_extension = file.filename.split('.')[-1]
             filename = f"{unique_id}.{file_extension}"
-            upload_to_gcs(file.stream, f"uploads/{file.filename}")
+            upload_to_gcs(file.stream, f"uploads/{file.filename}") 
             
             tiktok = read_csv_from_gcs(f"uploads/{file.filename}")
             tiktokData = tiktok[['uniqueId', 'text', 'createTimeISO']]
@@ -136,7 +136,6 @@ def index():
             filename = f"{unique_id}_analysisResult.csv"
             save_analysis_to_gcs(tiktokData, f"results/{filename}")
 
-
             # Menghitung jumlah komentar per cluster
             cluster_counts = tiktokData['cluster'].value_counts().to_dict()
 
@@ -177,7 +176,7 @@ def index():
             topComments = topComments.to_records(index=False).tolist()
             topAccounts = topAccounts.to_records(index=False).tolist()
             
-            download_url = url_for('download_file', download_file(filename=f"{unique_id}_analysisResult.csv"))
+            download_url = url_for('download_file', filename=f"{unique_id}_analysisResult.csv")
             
             return render_template(
                 'index.html',
@@ -325,9 +324,9 @@ def modeling():
 @app.route('/download/<filename>')
 def download_file(filename):
     try:
-        
         blob_name = f"results/{filename}"
         return download_from_gcs(blob_name)
+    
     except Exception as e:
         print(f"Error: {e}")
         return render_template("index.html", error="File not found or download failed.")
