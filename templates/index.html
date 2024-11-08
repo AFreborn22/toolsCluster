@@ -35,7 +35,7 @@
     </div>          
 
     <!-- Main Container for Visualization and Results -->
-    {% if filename %}
+    {% comment %} {% if filename %} {% endcomment %}
     <div class="results-container container my-5 p-4">
         <!-- Visualization Section -->
         <div class="visualization-section text-center">
@@ -169,7 +169,7 @@
         </div>
 
     </div>    
-    {% endif %}
+    {% comment %} {% endif %} {% endcomment %}
 
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
