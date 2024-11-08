@@ -215,56 +215,64 @@
         var pieData = {{ pie_data | safe }};
         var barData = {{ bar_data | safe }};
         var labels = ['Natural Comment', 'Buzzer / Bot'];
-    
-        // Pie chart
-        var pieCtx = document.getElementById('pieChart').getContext('2d');
-        var pieChart = new Chart(pieCtx, {
-            type: 'pie',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: pieData,
-                    backgroundColor: ['#00487c', '#0095ff'],  
-                    hoverOffset: 4
-                }]
-            },
-            options: {
-                plugins: {
-                    legend: {
-                        display: true,  // Tampilkan legenda
-                        position: 'top'
-                    }
-                }
-            }
-        });
-    
-        // Bar chart
-        var barCtx = document.getElementById('barChart').getContext('2d');
-        var barChart = new Chart(barCtx, {
-            type: 'bar',
-            data: {
-                labels: labels,  
-                datasets: [{  
-                    data: barData,  
-                    backgroundColor: ['#00487c', '#0095ff'],  
-                    barPercentage: 0.5,  
-                    categoryPercentage: 1.0  
-                }]
-            },
-            options: {
-                plugins: {
-                    legend: {
-                        display: false,  
-                    }
+
+        // Cek apakah elemen canvas pieChart dan barChart ada di DOM sebelum inisialisasi
+        var pieCanvas = document.getElementById('pieChart');
+        var barCanvas = document.getElementById('barChart');
+
+        if (pieCanvas && barCanvas) {
+            // Pie chart
+            var pieCtx = pieCanvas.getContext('2d');
+            var pieChart = new Chart(pieCtx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: pieData,
+                        backgroundColor: ['#00487c', '#0095ff'],  
+                        hoverOffset: 4
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true  
+                options: {
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
                     }
                 }
-            }
-        });
-    {% endif %}          
+            });
+
+            // Bar chart
+            var barCtx = barCanvas.getContext('2d');
+            var barChart = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: barData,
+                        backgroundColor: ['#00487c', '#0095ff'],
+                        barPercentage: 0.5,
+                        categoryPercentage: 1.0
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        } else {
+            console.warn("Canvas elements for charts not found.");
+        }
+        {% endif %}
     </script>
 </body>
 
