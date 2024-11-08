@@ -35,6 +35,7 @@
     </div>          
 
     <!-- Main Container for Visualization and Results -->
+    {% if download_url %}
     <div class="results-container container my-5 p-4">
         <!-- Visualization Section -->
         <div class="visualization-section text-center">
@@ -162,17 +163,13 @@
         <!-- Download Section -->
         <div class="download-section mt-5">
             <h3>Download Hasilnya di sini</h3>
-            {% if download_url %}
             <a href="{{ download_url }}" class="btn btn-success mt-3">Download</a>
-            {% else %}
-            <p>File tidak tersedia untuk diunduh.</p>
-            {% endif %}
             <p class="mt-4">Clustering dan analisisnya sudah selesai, mau lanjut ke modeling?</p>
             <a href="{{ url_for('modeling') }}" class="btn btn-primary mt-3">Modeling</a>
         </div>
-        
 
     </div>    
+    {% endif %}
 
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -214,68 +211,68 @@
         }
 
         // Cek apakah data pie_data dan bar_data ada
-        {% if pie_data and bar_data %}
-        var pieData = {{ pie_data | safe }};
-        var barData = {{ bar_data | safe }};
-        var labels = ['Natural Comment', 'Buzzer / Bot'];
+    {% if pie_data and bar_data %}
+    var pieData = {{ pie_data | safe }};
+    var barData = {{ bar_data | safe }};
+    var labels = ['Natural Comment', 'Buzzer / Bot'];
 
-        // Cek apakah elemen canvas pieChart dan barChart ada di DOM sebelum inisialisasi
-        var pieCanvas = document.getElementById('pieChart');
-        var barCanvas = document.getElementById('barChart');
+    // Cek apakah elemen canvas pieChart dan barChart ada di DOM sebelum inisialisasi
+    var pieCanvas = document.getElementById('pieChart');
+    var barCanvas = document.getElementById('barChart');
 
-        if (pieCanvas && barCanvas) {
-            // Pie chart
-            var pieCtx = pieCanvas.getContext('2d');
-            var pieChart = new Chart(pieCtx, {
-                type: 'pie',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: pieData,
-                        backgroundColor: ['#00487c', '#0095ff'],  
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top'
-                        }
+    if (pieCanvas && barCanvas) {
+        // Pie chart
+        var pieCtx = pieCanvas.getContext('2d');
+        var pieChart = new Chart(pieCtx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: pieData,
+                    backgroundColor: ['#00487c', '#0095ff'],  
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
                     }
                 }
-            });
+            }
+        });
 
-            // Bar chart
-            var barCtx = barCanvas.getContext('2d');
-            var barChart = new Chart(barCtx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: barData,
-                        backgroundColor: ['#00487c', '#0095ff'],
-                        barPercentage: 0.5,
-                        categoryPercentage: 1.0
-                    }]
+        // Bar chart
+        var barCtx = barCanvas.getContext('2d');
+        var barChart = new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: barData,
+                    backgroundColor: ['#00487c', '#0095ff'],
+                    barPercentage: 0.5,
+                    categoryPercentage: 1.0
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: {
+                        display: false
+                    }
                 },
-                options: {
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
+                scales: {
+                    y: {
+                        beginAtZero: true
                     }
                 }
-            });
-        } else {
-            console.warn("Canvas elements for charts not found.");
-        }
-        {% endif %}
+            }
+        });
+    } else {
+        console.warn("Canvas elements for charts not found.");
+    }
+    {% endif %}
     </script>
 </body>
 
