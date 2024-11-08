@@ -1,8 +1,9 @@
-from flask import Flask, render_template, request, send_from_directory
+from flask import Flask, render_template, request, send_file
 import pandas as pd
 import os
 import io
 import base64
+import uuid
 from dotenv import load_dotenv
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -21,7 +22,7 @@ from models.decisionTree import trainDecisionTree
 import pickle
 from imblearn.over_sampling import SMOTE
 from sklearn.metrics import confusion_matrix
-from services.gcs import upload_to_gcs, read_csv_from_gcs, download_from_gcs
+from services.gcs import upload_to_gcs, read_csv_from_gcs, save_analysis_to_gcs, download_from_gcs
 from config import Config
 import matplotlib.pyplot as plt
 
@@ -52,6 +53,9 @@ def index():
 
         try:
             # Simpan file dan proses CSV
+            unique_id = str(uuid.uuid4())  
+            file_extension = file.filename.split('.')[-1]
+            filename = f"{unique_id}.{file_extension}"
             upload_to_gcs(file.stream, f"uploads/{file.filename}")
             
             tiktok = read_csv_from_gcs(f"uploads/{file.filename}")
@@ -129,10 +133,9 @@ def index():
             tiktokData['cluster'] = tiktokData['cluster'].map(mapping)
 
             # Simpan hasil klastering ke file CSV
-            output = io.StringIO()
-            tiktokData.to_csv(output, index=False)
-            output.seek(0)
-            upload_to_gcs(output, "results/clustered_data.csv")
+            filename = f"{unique_id}_analysisResult.csv"
+            save_analysis_to_gcs(tiktokData, f"results/{filename}")
+
 
             # Menghitung jumlah komentar per cluster
             cluster_counts = tiktokData['cluster'].value_counts().to_dict()
@@ -174,7 +177,7 @@ def index():
             topComments = topComments.to_records(index=False).tolist()
             topAccounts = topAccounts.to_records(index=False).tolist()
             
-            download_url = f"https://storage.googleapis.com/{Config.GCS_BUCKET_NAME}/results/clustered_data.csv"
+            download_url = f"/download/{unique_id}_analysisResult.csv"
             
             return render_template(
                 'index.html',
@@ -320,10 +323,14 @@ def modeling():
     return render_template('modeling.html')
 
 @app.route('/download/<filename>')
-def download(filename):
-    local_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    download_from_gcs(filename, local_path)
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=True)
+def download_file(filename):
+    try:
+        
+        blob_name = f"results/{filename}"
+        return download_from_gcs(blob_name)
+    except Exception as e:
+        print(f"Error: {e}")
+        return render_template("index.html", error="File not found or download failed.")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
