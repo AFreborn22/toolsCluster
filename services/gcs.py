@@ -2,7 +2,7 @@ from google.cloud import storage
 from config import Config
 import io
 import pandas as pd
-from flask import Response
+from flask import send_file
 
 storage_client = storage.Client()
 
@@ -36,18 +36,21 @@ def save_analysis_to_gcs(tiktokData, destination_blob_name):
 def download_from_gcs(blob_name):
     """
     Mengunduh file dari Google Cloud Storage dan mengembalikannya sebagai respons Flask.
-    
-    Args:
-    - blob_name (str): Nama file di bucket GCS nya.
-    
-    Returns:
-    - send_file: File yang dapat diunduh oleh user.
     """
     bucket = storage_client.bucket(Config.GCS_BUCKET_NAME)
     blob = bucket.blob(blob_name)
     
+    # Unduh data sebagai bytes
     csv_data = blob.download_as_bytes()
-    
-    response = Response(csv_data)
-    response.headers['Content-Type'] = 'application/octet-stream'
-    response.headers['Content-Disposition'] = f'attachment; filename="{blob_name.split("/")[-1]}"'
+
+    # Masukkan ke dalam BytesIO untuk send_file
+    file_obj = io.BytesIO(csv_data)
+    file_obj.seek(0)  # Pastikan pointer file ada di awal
+
+    # Gunakan send_file untuk mengirim data
+    return send_file(
+        file_obj,
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=blob_name.split("/")[-1]
+    )
