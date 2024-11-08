@@ -3,6 +3,7 @@ from config import Config
 import io
 import pandas as pd
 from flask import send_file
+import pickle
 
 storage_client = storage.Client()
 
@@ -18,19 +19,25 @@ def read_csv_from_gcs(blob_name):
     data = blob.download_as_text()  
     return pd.read_csv(io.StringIO(data))
 
-def save_analysis_to_gcs(tiktokData, destination_blob_name):
+def save_file_to_gcs(data, destination_blob_name, content_type):
     """
-    Menyimpan DataFrame ke Google Cloud Storage sebagai file CSV.
-    
+    Menyimpan data ke Google Cloud Storage.
+
     Args:
-    - tiktokData (pd.DataFrame): DataFrame hasil analisis yang ingin disimpan.
+    - data: Data yang ingin disimpan (bisa berupa DataFrame atau model).
     - destination_blob_name (str): Nama file tujuan di bucket GCS.
+    - content_type (str): Tipe konten file, seperti 'text/csv' atau 'application/octet-stream' untuk binary files.
     """
     bucket = storage_client.bucket(Config.GCS_BUCKET_NAME)
     blob = bucket.blob(destination_blob_name)
     
-    csv_data = tiktokData.to_csv(index=False)
-    blob.upload_from_string(csv_data, content_type='text/csv')
+    if content_type == 'text/csv':
+        csv_data = data.to_csv(index=False)
+        blob.upload_from_string(csv_data, content_type=content_type)
+    elif content_type == 'application/octet-stream':  
+        model_data = pickle.dumps(data)
+        blob.upload_from_string(model_data, content_type=content_type)
+    
     print(f"File '{destination_blob_name}' berhasil disimpan di GCS.")
     
 def download_from_gcs(blob_name):

@@ -22,7 +22,7 @@ from models.decisionTree import trainDecisionTree
 import pickle
 from imblearn.over_sampling import SMOTE
 from sklearn.metrics import confusion_matrix
-from services.gcs import upload_to_gcs, read_csv_from_gcs, save_analysis_to_gcs, download_from_gcs
+from services.gcs import upload_to_gcs, read_csv_from_gcs, save_file_to_gcs, download_from_gcs
 from config import Config
 import matplotlib.pyplot as plt
 
@@ -174,7 +174,7 @@ def index():
             
             # Simpan hasil klastering ke file CSV
             filename = f"{unique_id}_analysisResult.csv"
-            save_analysis_to_gcs(tiktokData, f"results/{filename}")
+            save_file_to_gcs(tiktokData, f"results/{filename}")
             
             download_url = url_for('download_file', filename=f"{unique_id}_analysisResult.csv")
             
@@ -224,99 +224,93 @@ def plot_confusion_matrix(cm, model_name):
 @app.route('/modeling', methods=['GET', 'POST'])
 def modeling():
     if request.method == 'POST':
+        # Ambil file dari form
         file = request.files.get('clustered_file')
         if not file or file.filename == '' or not file.filename.endswith('.csv'):
             return render_template('modeling.html', error="Invalid file type. Please upload a CSV file.")
-        
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        file.save(file_path)
 
         try:
-            tiktokData = pd.read_csv(file_path)
-        except Exception as e:
-            return render_template('modeling.html', error=f"Error reading uploaded file: {e}")
+            # Generate unique ID dan simpan ke GCS
+            unique_id = str(uuid.uuid4())
+            filename = f"{unique_id}_clustered_data.csv"
+            upload_to_gcs(file.stream, f"uploads/{filename}")
 
-        # Validasi kolom yang diperlukan
-        required_columns = ['max_cosine_sim', 'similar_comments_count', 'comment_count', 'time_diff', 'cluster']
-        if not all(col in tiktokData.columns for col in required_columns):
-            return render_template('modeling.html', error="Uploaded file does not contain the required columns.")
+            # Baca file dari GCS
+            tiktokData = read_csv_from_gcs(f"uploads/{filename}")
 
-        # Ambil fitur dan label
-        X = tiktokData[['max_cosine_sim', 'similar_comments_count', 'comment_count', 'time_diff']]
-        y = tiktokData['cluster']
+            # Validasi kolom yang diperlukan
+            required_columns = ['max_cosine_sim', 'similar_comments_count', 'comment_count', 'time_diff', 'cluster']
+            if not all(col in tiktokData.columns for col in required_columns):
+                return render_template('modeling.html', error="Uploaded file does not contain the required columns.")
 
-        # Cek apakah label memiliki lebih dari satu kelas
-        if len(y.unique()) < 2:
-            return render_template('modeling.html', error="Cluster must have at least two classes.")
+            # Ambil fitur dan label
+            X = tiktokData[['max_cosine_sim', 'similar_comments_count', 'comment_count', 'time_diff']]
+            y = tiktokData['cluster']
 
-        # Normalisasi fitur sebelum SMOTE
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
+            # Normalisasi dan balancing data menggunakan SMOTE
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(X)
+            smote = SMOTE(random_state=42)
+            X_resampled, y_resampled = smote.fit_resample(X_scaled, y)
 
-        # Terapkan SMOTE
-        smote = SMOTE(random_state=42)
-        X_resampled, y_resampled = smote.fit_resample(X_scaled, y)
+            # Split data menjadi training dan testing
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_resampled, y_resampled, test_size=0.3, random_state=42)
 
-        # Split data menjadi training dan testing
-        X_train, X_test, y_train, y_test = train_test_split(
-            X_resampled, y_resampled, test_size=0.3, random_state=42)
+            # Model yang tersedia
+            models = {
+                'Logistic Regression': trainLogisticRegression,
+                'Random Forest': trainRandomForest,
+                'SVM': trainSVM,
+                'Decision Tree': trainDecisionTree
+            }
 
-        # Model yang tersedia
-        models = {
-            'Logistic Regression': trainLogisticRegression,
-            'Random Forest': trainRandomForest,
-            'SVM': trainSVM,
-            'Decision Tree': trainDecisionTree
-        }
+            # Cek input model dari pengguna
+            model_type = request.form['model_type']
+            if model_type not in models and model_type != 'all':
+                return render_template('modeling.html', error="Invalid model type selected.")
 
-        # Cek input model dari pengguna
-        model_type = request.form['model_type']
-        if model_type not in models and model_type != 'all':
-            return render_template('modeling.html', error="Invalid model type selected.")
+            results = []
 
-        results = []
-
-        try:
-            if model_type == 'all':  
-                for name, func in models.items():
-                    model, accuracy, report, cv_report, cm = func(
-                        X_train, X_test, y_train, y_test)
-                    cm_image = plot_confusion_matrix(cm, name)
-                    model_filename = f"{name.replace(' ', '_')}.pkl"
-                    model_path = os.path.join(app.config['UPLOAD_FOLDER'], model_filename)
-                    with open(model_path, 'wb') as file:
-                        pickle.dump(model, file)
+            try:
+                # Loop melalui model atau pilih satu model saja
+                if model_type == 'all':  
+                    for name, func in models.items():
+                        model, accuracy, report, cv_report, cm = func(X_train, X_test, y_train, y_test)
+                        cm_image = plot_confusion_matrix(cm, name)
+                        model_filename = f"{unique_id}_{name.replace(' ', '_')}.pkl"
+                        save_file_to_gcs(model, f"models/{model_filename}")
+                        results.append({
+                            'name': name,
+                            'accuracy': accuracy,
+                            'report': report,
+                            'cv_report': cv_report,
+                            'cm_image': cm_image,
+                            'download_url': url_for('download_model', filename=model_filename)
+                        })
+                else:
+                    func = models[model_type]
+                    model, accuracy, report, cv_report, cm = func(X_train, X_test, y_train, y_test)
+                    cm_image = plot_confusion_matrix(cm, model_type)
+                    model_filename = f"{unique_id}_{model_type.replace(' ', '_')}.pkl"
+                    save_file_to_gcs(model, f"models/{model_filename}")
                     results.append({
-                        'name': name,
+                        'name': model_type,
                         'accuracy': accuracy,
                         'report': report,
                         'cv_report': cv_report,
                         'cm_image': cm_image,
-                        'model_filename': model_filename
+                        'download_url': url_for('download_model', filename=model_filename)
                     })
-            else:  
-                func = models[model_type]
-                model, accuracy, report, cv_report, cm = func(
-                    X_train, X_test, y_train, y_test)
-                cm_image = plot_confusion_matrix(cm, model_type)
-                model_filename = f"{model_type.replace(' ', '_')}.pkl"
-                model_path = os.path.join(app.config['UPLOAD_FOLDER'], model_filename)
-                with open(model_path, 'wb') as file:
-                    pickle.dump(model, file)
-                results.append({ 
-                    'name': model_type,
-                    'accuracy': accuracy,
-                    'report': report,
-                    'cv_report': cv_report,
-                    'cm_image': cm_image,
-                    'model_filename': model_filename
-                })
+
+            except Exception as e:
+                return render_template('modeling.html', error=f"An error occurred during model training: {e}")
+
+            # Render hasil ke template HTML
+            return render_template('modeling.html', results=results)
 
         except Exception as e:
-            return render_template('modeling.html', error=f"An error occurred during model training: {e}")
-
-        # Render hasil ke template HTML nya
-        return render_template('modeling.html', results=results)
+            return render_template('modeling.html', error=f"Error processing file: {e}")
 
     # Tampilkan halaman modeling jika GET request
     return render_template('modeling.html')
@@ -330,6 +324,14 @@ def download_file(filename):
     except Exception as e:
         print(f"Error: {e}")
         return render_template("index.html", error="File not found or download failed.")
+    
+@app.route('/download_model/<filename>')
+def download_model(filename):
+    try:
+        blob_name = f"models/{filename}"
+        return download_from_gcs(blob_name)
+    except Exception as e:
+        return render_template("modeling.html", error="File not found or download failed.")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
