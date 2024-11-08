@@ -38,7 +38,7 @@ def download_from_gcs(blob_name):
     Mengunduh file dari Google Cloud Storage dan mengembalikannya sebagai respons Flask.
     
     Args:
-    - blob_name (str): Nama file di bucket GCS.
+    - blob_name (str): Nama file di bucket GCS nya.
     
     Returns:
     - send_file: File yang dapat diunduh oleh user.

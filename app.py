@@ -316,7 +316,7 @@ def modeling():
         except Exception as e:
             return render_template('modeling.html', error=f"An error occurred during model training: {e}")
 
-        # Render hasil ke template HTML
+        # Render hasil ke template HTML nya
         return render_template('modeling.html', results=results)
 
     # Tampilkan halaman modeling jika GET request
