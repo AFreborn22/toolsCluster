@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, url_for
 import pandas as pd
 import os
 import io
@@ -177,7 +177,7 @@ def index():
             topComments = topComments.to_records(index=False).tolist()
             topAccounts = topAccounts.to_records(index=False).tolist()
             
-            download_url = f"/download/{unique_id}_analysisResult.csv"
+            download_url = url_for('download_file', filename=f"{unique_id}_analysisResult.csv")
             
             return render_template(
                 'index.html',
