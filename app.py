@@ -177,7 +177,7 @@ def index():
             topComments = topComments.to_records(index=False).tolist()
             topAccounts = topAccounts.to_records(index=False).tolist()
             
-            download_url = url_for('download_file', filename=f"{unique_id}_analysisResult.csv")
+            download_url = url_for('download_file', download_file(filename=f"{unique_id}_analysisResult.csv"))
             
             return render_template(
                 'index.html',
