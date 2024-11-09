@@ -20,6 +20,7 @@ from models.logisticRegression import trainLogisticRegression
 from models.svm import trainSVM
 from models.decisionTree import trainDecisionTree
 import pickle
+from itertools import chain
 from imblearn.over_sampling import SMOTE
 from sklearn.metrics import confusion_matrix
 from services.gcs import upload_to_gcs, read_csv_from_gcs, save_analysis_to_gcs, save_model_to_gcs, download_from_gcs, download_model_from_gcs
@@ -70,8 +71,7 @@ def index():
             factory = StemmerFactory()
             stemmer = factory.create_stemmer()
 
-            unique_words = set()
-            tiktokData['textClean'].str.split().apply(unique_words.update)
+            unique_words = set(chain.from_iterable(tiktokData['textClean'].str.split()))
 
             stemmed_words = {word: stemmer.stem(word) for word in unique_words}
 
