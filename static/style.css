@@ -26,6 +26,10 @@ body {
     background-repeat: no-repeat;
 }
 
+a{
+    align-items: center;
+}
+
 /* Header */
 .main-header {
     width: 100%;
