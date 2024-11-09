@@ -11,6 +11,7 @@
     <style>
         body {
             background-color: #f5f5f5;
+            align-items: center;
         }
         .container {
             max-width: 800px;
@@ -264,7 +265,7 @@
                         <p style="display: flex; justify-content: center; align-items: center;">(Download model dalam bentuk .pkl)</p>
                     
                     {% if result.model_filename %}
-                        <a href="{{ url_for('download_model', filename=result.model_filename) }}" class="btn btn-primary">Download {{ result.name }} Model</a>
+                        <a href="{{ url_for('download_model', filename=result.model_filename) }}" class="btn btn-primary">Download</a>
                     {% endif %}
                     
                 </div>
