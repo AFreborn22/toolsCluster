@@ -264,9 +264,12 @@
                         
                         <p style="display: flex; justify-content: center; align-items: center;">(Download model dalam bentuk .pkl)</p>
                     
+                    
+                <div style="display: flex; justify-content: center;">
                     {% if result.model_filename %}
                         <a href="{{ url_for('download_model', filename=result.model_filename) }}" class="btn btn-primary">Download</a>
                     {% endif %}
+                </div>
                     
                 </div>
             </div>
