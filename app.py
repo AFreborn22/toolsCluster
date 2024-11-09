@@ -22,7 +22,7 @@ from models.decisionTree import trainDecisionTree
 import pickle
 from imblearn.over_sampling import SMOTE
 from sklearn.metrics import confusion_matrix
-from services.gcs import upload_to_gcs, read_csv_from_gcs, save_file_to_gcs, download_from_gcs
+from services.gcs import upload_to_gcs, read_csv_from_gcs, save_analysis_to_gcs, download_from_gcs
 from config import Config
 import matplotlib.pyplot as plt
 
@@ -174,7 +174,7 @@ def index():
             
             # Simpan hasil klastering ke file CSV
             filename = f"{unique_id}_analysisResult.csv"
-            save_file_to_gcs(tiktokData, f"results/{filename}")
+            save_analysis_to_gcs(tiktokData, f"results/{filename}")
             
             download_url = url_for('download_file', filename=f"{unique_id}_analysisResult.csv")
             
