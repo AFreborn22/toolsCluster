@@ -22,7 +22,7 @@ from models.decisionTree import trainDecisionTree
 import pickle
 from imblearn.over_sampling import SMOTE
 from sklearn.metrics import confusion_matrix
-from services.gcs import upload_to_gcs, read_csv_from_gcs, save_analysis_to_gcs, download_from_gcs
+from services.gcs import upload_to_gcs, read_csv_from_gcs, save_analysis_to_gcs, save_model_to_gcs, download_from_gcs, download_model_from_gcs
 from config import Config
 import matplotlib.pyplot as plt
 
@@ -279,7 +279,7 @@ def modeling():
                         model, accuracy, report, cv_report, cm = func(X_train, X_test, y_train, y_test)
                         cm_image = plot_confusion_matrix(cm, name)
                         model_filename = f"{unique_id}_{name.replace(' ', '_')}.pkl"
-                        save_file_to_gcs(model, f"models/{model_filename}")
+                        save_model_to_gcs(model, f"models/{model_filename}")
                         results.append({
                             'name': name,
                             'accuracy': accuracy,
@@ -293,7 +293,7 @@ def modeling():
                     model, accuracy, report, cv_report, cm = func(X_train, X_test, y_train, y_test)
                     cm_image = plot_confusion_matrix(cm, model_type)
                     model_filename = f"{unique_id}_{model_type.replace(' ', '_')}.pkl"
-                    save_file_to_gcs(model, f"models/{model_filename}")
+                    save_model_to_gcs(model, f"models/{model_filename}")
                     results.append({
                         'name': model_type,
                         'accuracy': accuracy,
@@ -329,9 +329,18 @@ def download_file(filename):
 def download_model(filename):
     try:
         blob_name = f"models/{filename}"
-        return download_from_gcs(blob_name)
+        model_file = download_model_from_gcs(blob_name)
+        
+        return send_file(
+            model_file,
+            mimetype='application/octet-stream',
+            as_attachment=True,
+            download_name=filename  
+        )
     except Exception as e:
+        print(f"Error: {e}")
         return render_template("modeling.html", error="File not found or download failed.")
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)

@@ -20,24 +20,19 @@ def read_csv_from_gcs(blob_name):
     return pd.read_csv(io.StringIO(data))
 
 def save_analysis_to_gcs(tiktokData, destination_blob_name):
-    """
-    Menyimpan DataFrame ke Google Cloud Storage sebagai file CSV.
-    
-    Args:
-    - tiktokData (pd.DataFrame): DataFrame hasil analisis yang ingin disimpan.
-    - destination_blob_name (str): Nama file tujuan di bucket GCS.
-    """
     bucket = storage_client.bucket(Config.GCS_BUCKET_NAME)
     blob = bucket.blob(destination_blob_name)
-    
     csv_data = tiktokData.to_csv(index=False)
     blob.upload_from_string(csv_data, content_type='text/csv')
-    print(f"File '{destination_blob_name}' berhasil disimpan di GCS.")
+    
+def save_model_to_gcs(model, destination_blob_name):
+    bucket = storage_client.bucket(Config.GCS_BUCKET_NAME)
+    blob = bucket.blob(destination_blob_name)
+    pickle_data = pickle.dumps(model)  
+    blob.upload_from_string(pickle_data, content_type='application/octet-stream')
+    print(f"Model uploaded to {destination_blob_name} in GCS.")
     
 def download_from_gcs(blob_name):
-    """
-    Mengunduh file dari Google Cloud Storage dan mengembalikannya sebagai respons Flask.
-    """
     bucket = storage_client.bucket(Config.GCS_BUCKET_NAME)
     blob = bucket.blob(blob_name)
     
@@ -46,12 +41,18 @@ def download_from_gcs(blob_name):
 
     # Masukkan ke dalam BytesIO untuk send_file
     file_obj = io.BytesIO(csv_data)
-    file_obj.seek(0)  # Pastikan pointer file ada di awal
+    file_obj.seek(0)  
 
-    # Gunakan send_file untuk mengirim data
     return send_file(
         file_obj,
         mimetype='text/csv',
         as_attachment=True,
         download_name=blob_name.split("/")[-1]
     )
+    
+def download_model_from_gcs(blob_name):
+    """Download pickled model from GCS and return as BytesIO."""
+    bucket = storage_client.bucket(Config.GCS_BUCKET_NAME)
+    blob = bucket.blob(blob_name)
+    model_data = blob.download_as_bytes()  
+    return io.BytesIO(model_data) 
