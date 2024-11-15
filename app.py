@@ -331,6 +331,7 @@ def download_model(filename):
     try:
         blob_name = f"models/{filename}"
         model_file = download_model_from_gcs(blob_name)
+        print(f"Requested filename: {filename}")
         
         return send_file(
             model_file,
