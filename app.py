@@ -131,15 +131,6 @@ def index():
                 mapping = {0: 'Natural Comment', 1: 'Buzzer / Bot'}
             
             tiktokData['cluster'] = tiktokData['cluster'].map(mapping)
-            
-            def refine_cluster(row):
-                # validasi hasil cluster
-                if row['cluster'] == 'Buzzer / Bot' or (row['max_cosine_sim'] > 0.7 and row['similar_comments_count'] > 10):
-                    return 'Buzzer/Bot'
-                else:
-                    return 'Natural Comment'
-
-            tiktokData['cluster'] = tiktokData.apply(refine_cluster, axis=1)
 
             # Menghitung jumlah komentar per cluster
             cluster_counts = tiktokData['cluster'].value_counts().to_dict()
