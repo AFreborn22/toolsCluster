@@ -130,6 +130,7 @@ def index():
             else:
                 mapping = {0: 'Natural Comment', 1: 'Buzzer / Bot'}
             
+            # mapping hasil cluster
             tiktokData['cluster'] = tiktokData['cluster'].map(mapping)
             
             # Menghitung jumlah komentar per cluster
