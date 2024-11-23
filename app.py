@@ -140,7 +140,7 @@ def index():
                     return 'Natural Comment'
 
             # Terapkan pengkondisian setelah mapping
-            tiktokData['final_category'] = tiktokData.apply(refine_cluster, axis=1)
+            tiktokData['cluster'] = tiktokData.apply(refine_cluster, axis=1)
 
             # Menghitung jumlah komentar per cluster
             cluster_counts = tiktokData['cluster'].value_counts().to_dict()
