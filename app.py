@@ -287,7 +287,8 @@ def modeling():
                             'report': report,
                             'cv_report': cv_report,
                             'cm_image': cm_image,
-                            'download_url': url_for('download_model', filename=model_filename)
+                            'download_url': url_for('download_model', filename=model_filename),
+                            'model_filename': model_filename
                         })
                 else:
                     func = models[model_type]
