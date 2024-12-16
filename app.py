@@ -135,8 +135,8 @@ def index():
             
             def validate_cluster(row):
                 # Memeriksa nilai max_cosine_sim dan similar_comments_count untuk menentukan perubahan cluster
-                if row['max_cosine_sim'] > 0.7 and row['similar_comments_count'] > 1:
-                    # Jika cosine similarity lebih dari 0.7 dan jumlah komentar serupa lebih dari 1, 
+                if row['max_cosine_sim'] > 0.8 and row['similar_comments_count'] > 1:
+                    # Jika cosine similarity lebih dari 0.8 dan jumlah komentar serupa lebih dari 1, 
                     # maka cluster 'Natural Comment' harus diubah menjadi 'Buzzer / Bot'
                     if row['cluster'] == 'Natural Comment':
                         return 'Buzzer / Bot'
