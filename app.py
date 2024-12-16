@@ -248,15 +248,17 @@ def modeling():
             X = tiktokData[['max_cosine_sim', 'similar_comments_count', 'comment_count', 'time_diff']]
             y = tiktokData['cluster']
 
-            # Normalisasi dan balancing data menggunakan SMOTE
-            scaler = StandardScaler()
-            X_scaled = scaler.fit_transform(X)
-            smote = SMOTE(random_state=42)
-            X_resampled, y_resampled = smote.fit_resample(X_scaled, y)
-
             # Split data menjadi training dan testing
             X_train, X_test, y_train, y_test = train_test_split(
-                X_resampled, y_resampled, test_size=0.3, random_state=42)
+                X, y, test_size=0.3, random_state=42)
+            
+            # Normalisasi dan balancing data menggunakan SMOTE
+            scaler = StandardScaler()
+            X_train_scaled = scaler.fit_transform(X_train)  
+            X_test = scaler.transform(X_test)
+            
+            smote = SMOTE(random_state=42)
+            X_train, y_train = smote.fit_resample(X_train_scaled, y_train)
 
             # Model yang tersedia
             models = {
