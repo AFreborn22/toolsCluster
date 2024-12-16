@@ -134,18 +134,22 @@ def index():
             tiktokData['cluster'] = tiktokData['cluster'].map(mapping)
             
             def validate_cluster(row):
-                if row['max_cosine_sim'] > 0.7:
-                    # Jika cosine similarity lebih dari 0.7, maka harusnya cluster 'Natural Comment' menjadi 'bot/buzzer'
+                # Memeriksa nilai max_cosine_sim dan similar_comments_count untuk menentukan perubahan cluster
+                if row['max_cosine_sim'] > 0.7 and row['similar_comments_count'] > 1:
+                    # Jika cosine similarity lebih dari 0.7 dan jumlah komentar serupa lebih dari 1, 
+                    # maka cluster 'Natural Comment' harus diubah menjadi 'Buzzer / Bot'
                     if row['cluster'] == 'Natural Comment':
                         return 'Buzzer / Bot'
                 else:
-                    # Jika cosine similarity kurang dari atau sama dengan 0.7, maka harusnya cluster 'Buzzer / Bot' menjadi 'Natural Comment'
-                    if row['cluster'] == 'Buzzer / Bot':
+                    # Jika cosine similarity kurang dari atau sama dengan 0.7 dan jumlah komentar serupa lebih dari 1,
+                    # maka cluster 'Buzzer / Bot' harus diubah menjadi 'Natural Comment'
+                    if row['cluster'] == 'Buzzer / Bot' :
                         return 'Natural Comment'
                 
                 # Jika tidak ada perubahan, kembalikan cluster asli
                 return row['cluster']
-            
+
+            # Terapkan validasi pada seluruh data
             tiktokData['cluster'] = tiktokData.apply(validate_cluster, axis=1)
             
             # Menghitung jumlah komentar per cluster
